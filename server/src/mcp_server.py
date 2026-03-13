@@ -41,8 +41,22 @@ def _to_camel(s: str) -> str:
 
 
 def _camel_params(d: dict) -> dict:
-    skip = {"canvas_id", "layer_id", "shape_id", "group_id", "shape_type", "shape_ids",
-            "operation", "axis", "format", "pixel_ratio", "name"}
+    # Keys in this set are expected by the JS bridge in snake_case and
+    # must not be converted to camelCase.
+    skip = {
+        "canvas_id",
+        "layer_id",
+        "shape_id",
+        "group_id",
+        "shape_type",
+        "shape_ids",
+        "operation",
+        "axis",
+        "format",
+        "pixel_ratio",
+        "name",
+        "file_path",
+    }
     return {(_to_camel(k) if k not in skip else k): v for k, v in d.items()}
 
 
@@ -64,6 +78,52 @@ async def create_canvas(width: int, height: int, background: Optional[str] = Non
         background: Optional CSS color for the background (e.g. "#ffffff").
     """
     return await _call("create_canvas", width=width, height=height, background=background)
+
+
+@mcp.tool()
+async def add_image(
+    canvas_id: str,
+    layer_id: str,
+    file_path: str,
+    x: float = 0,
+    y: float = 0,
+    width: Optional[float] = None,
+    height: Optional[float] = None,
+    opacity: Optional[float] = None,
+) -> dict:
+    """Place a PNG, JPEG, or SVG file onto the canvas as an image shape. Returns shape_id.
+
+    Supported formats: .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg
+    SVG files are rasterised to the target dimensions before placement.
+
+    Args:
+        canvas_id: ID returned by create_canvas.
+        layer_id: ID of the layer to add the image to.
+        file_path: Absolute path to the image file on disk.
+        x: Left edge position in pixels (default 0).
+        y: Top edge position in pixels (default 0).
+        width: Render width in pixels. Defaults to the image's natural width.
+        height: Render height in pixels. Defaults to the image's natural height.
+        opacity: Opacity from 0.0 (transparent) to 1.0 (opaque).
+    """
+    return await _call(
+        "add_image",
+        canvas_id=canvas_id, layer_id=layer_id, file_path=file_path,
+        x=x, y=y, width=width, height=height, opacity=opacity,
+    )
+
+
+@mcp.tool()
+async def image_info(file_path: str) -> dict:
+    """Return metadata about an image file without placing it on a canvas.
+
+    Returns {file_path, width, height, format, size_bytes, aspect_ratio}.
+    Supported formats: .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg
+
+    Args:
+        file_path: Absolute path to the image file on disk.
+    """
+    return await _call("get_image_info", file_path=file_path)
 
 
 @mcp.tool()
@@ -271,6 +331,22 @@ async def preview_canvas(canvas_id: str, pixel_ratio: float = 1.0) -> Image:
         return {"error": e.code, "message": str(e)}
     raw = base64.b64decode(result["data"])
     return Image(data=raw, format="png")
+
+
+@mcp.tool()
+async def export_canvas_json(canvas_id: str) -> dict:
+    """Export the canvas state as a JSON file saved to a temp file.
+
+    Returns {canvas_id, format, file_path} pointing to the saved JSON.
+    """
+    import json
+    result = await _call("get_canvas_state", canvas_id=canvas_id)
+    if "error" in result:
+        return result
+    path = os.path.join(tempfile.gettempdir(), f"konva_{canvas_id}.json")
+    with open(path, "w") as f:
+        json.dump(result, f, indent=2)
+    return {"canvas_id": canvas_id, "format": "json", "file_path": path}
 
 
 @mcp.tool()

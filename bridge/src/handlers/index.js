@@ -3,6 +3,7 @@ import { addLayer, clearLayer } from './layerHandlers.js'
 import { createShape, updateShape, deleteShape, listShapes } from './shapeHandlers.js'
 import { transformShape } from './transformHandlers.js'
 import { createGroup } from './groupHandlers.js'
+import { addImage, getImageInfo } from './imageHandlers.js'
 import { ActionNotFoundError } from '../utils/errorTypes.js'
 
 const ACTION_MAP = {
@@ -17,6 +18,8 @@ const ACTION_MAP = {
   list_shapes:      listShapes,
   transform_shape:  transformShape,
   create_group:     createGroup,
+  add_image:        addImage,
+  get_image_info:   getImageInfo,
 }
 
 export async function dispatch(action, params) {

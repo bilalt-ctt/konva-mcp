@@ -16,11 +16,10 @@ class BridgeClient:
 
     async def execute(self, action: str, params: dict) -> dict:
         response = await self._client.post("/execute", json={"action": action, "params": params})
-        response.raise_for_status()
         body = response.json()
-        if not body["success"]:
-            err = body["error"]
-            raise BridgeError(code=err["code"], message=err["message"])
+        if not body.get("success"):
+            err = body.get("error", {})
+            raise BridgeError(code=err.get("code", "UNKNOWN"), message=err.get("message", "Unknown error"))
         return body["data"]
 
     async def health(self) -> bool:
